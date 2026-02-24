@@ -6,8 +6,8 @@ export function getDefaultParams() {
     maxLength: 1.0,
     minLength: 0.08,
     minStroke: 0.5,     // min stroke width (px)
-    maxStroke: 11.0,    // max stroke width (px)
-    speed: 1.5,         // animate-only (ignored by generate)
+    maxStroke: 6.0,     // max stroke width (px)
+    speed: 4.0,         // animate-only (ignored by generate)
     waveFreq: 0.20,     // animate-only (ignored by generate)
     color: '#000000',
   };
@@ -15,11 +15,11 @@ export function getDefaultParams() {
 
 export function getParamSchema() {
   return [
-    { key: 'minStroke',  label: 'Min Stroke', min: 0.1, max: 3,   step: 0.1,  default: 0.5  },
-    { key: 'maxStroke',  label: 'Max Stroke', min: 1,   max: 20,  step: 0.5,  default: 11.0 },
-    { key: 'maxLength',  label: 'Max Length', min: 0.2, max: 1.0, step: 0.01, default: 1.0  },
-    { key: 'speed',      label: 'Anim Speed', min: 0.1, max: 5,   step: 0.1,  default: 1.5  },
-    { key: 'waveFreq',   label: 'Wave Spacing',min: 0.01,max: 0.5,step: 0.01, default: 0.20 },
+    { key: 'minStroke', label: 'Min Width', min: 0.1, max: 3, step: 0.1, default: 0.5 },
+    { key: 'maxStroke', label: 'Max Width', min: 1, max: 10, step: 0.5, default: 6.0 },
+    { key: 'maxLength', label: 'Length', min: 0.2, max: 1.0, step: 0.01, default: 1.0 },
+    { key: 'speed', label: 'Speed', min: 0.1, max: 5, step: 0.1, default: 4.0 },
+    { key: 'waveFreq', label: 'Spacing', min: 0.01, max: 0.5, step: 0.01, default: 0.20 },
   ];
 }
 

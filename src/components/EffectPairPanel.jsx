@@ -35,7 +35,7 @@ function sampleBilinear(grid, cols, rows, u, v) {
 `.trim();
 
 // ── Build standalone HTML — embeds sampleData + current params ────────────
-function buildStandaloneHTML(title, animModule, sampleData, params) {
+function buildStandaloneHTML(title, animModule, sampleData, params, baseW, baseH) {
   const gridJSON = JSON.stringify(
     sampleData.grid.map((row) => Array.from(row)),
   );
@@ -70,6 +70,8 @@ const SAMPLE_DATA = {
 const LOGO_ASPECT = SAMPLE_DATA.svgWidth / SAMPLE_DATA.svgHeight;
 // Current params from the editor (slider values at time of export)
 const PARAMS = ${paramsJSON};
+const BASE_W = ${baseW};
+const BASE_H = ${baseH};
 
 ${MATH_UTILS_SRC}
 
@@ -88,9 +90,16 @@ function setup(w, h) {
   canvas.style.height = h + 'px';
   ctx = canvas.getContext('2d');
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  
+  // 원본 에디터 패널의 크기(BASE_W, BASE_H) 대비 현재 창 크기 스케일 계산
+  const scale = w / BASE_W;
+  
   ctx.scale(dpr, dpr);
+  ctx.scale(scale, scale);
+  
   // Merge editor params over defaults so exported file matches what was seen
-  animState = init(SAMPLE_DATA, { ...getDefaultParams(), ...PARAMS }, w, h);
+  // init()은 스케일을 적용받으므로 원본 BASE_W, BASE_H 크기로 넘겨줌
+  animState = init(SAMPLE_DATA, { ...getDefaultParams(), ...PARAMS }, BASE_W, BASE_H);
 }
 
 function loop(ts) {
@@ -158,6 +167,7 @@ export default function EffectPairPanel({
   outputHeight,
   params,
   onParamChange,
+  logoName = 'logo',
 }) {
   // Schema comes from animModule (the canonical unified schema)
   const schema = useMemo(() => animModule.getParamSchema(), [animModule]);
@@ -167,6 +177,11 @@ export default function EffectPairPanel({
   const canvasRef = useRef(null);
 
   const aspect = sampleData ? sampleData.svgWidth / sampleData.svgHeight : 1;
+
+  // logoName에서 확장자를 제거하고 소문자/대시 형태로 변환
+  const baseLogoName = logoName.replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const safeName = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const exportPrefix = `${baseLogoName}_${safeName}`;
 
   // Generate mode: compute SVG string reactively
   const svgString = useMemo(() => {
@@ -178,18 +193,23 @@ export default function EffectPairPanel({
   function exportSVG() {
     if (!svgString) return;
     const blob = new Blob([svgString], { type: 'image/svg+xml' });
-    const safeName = title.toLowerCase().replace(/\s+/g, '-');
-    downloadBlob(blob, `${safeName}.svg`);
+    downloadBlob(blob, `${exportPrefix}.svg`);
   }
 
   // ── Export standalone HTML (animate mode) ────────────────────────────────
   function exportCode() {
     if (!sampleData) return;
-    // Pass current params so exported HTML reflects slider values
-    const html = buildStandaloneHTML(title, animModule, sampleData, params);
+    // Pass current params so exported HTML  function exportCode() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const baseW = Math.round(canvas.width / dpr);
+    const baseH = Math.round(canvas.height / dpr);
+
+    const html = buildStandaloneHTML(title, animModule, sampleData, params, baseW, baseH);
     const blob = new Blob([html], { type: 'text/html' });
-    const safeName = title.toLowerCase().replace(/\s+/g, '-');
-    downloadBlob(blob, `${safeName}-logo.html`);
+    downloadBlob(blob, `${exportPrefix}.html`);
   }
 
   // ── Export GIF — transparent background, ~3 sec loop ─────────────────────
@@ -220,9 +240,11 @@ export default function EffectPairPanel({
     offscreen.width = logicalW;
     offscreen.height = logicalH;
     const offCtx = offscreen.getContext('2d', { willReadFrequently: true });
+    offCtx.scale(scale, scale);
 
     const mergedParams = { ...animModule.getDefaultParams(), ...params };
-    const animState = animModule.init(sampleData, mergedParams, logicalW, logicalH);
+    // 파라미터가 브라우저 보이는 그대로 렌더링되게끔 baseW/baseH를 넘김
+    const animState = animModule.init(sampleData, mergedParams, baseW, baseH);
 
     const gif = new GIF({
       workers: 2,
@@ -245,7 +267,7 @@ export default function EffectPairPanel({
       animModule.drawFrame(offCtx, animState, t);
       offCtx.globalCompositeOperation = 'destination-over';
       offCtx.fillStyle = '#ffffff';
-      offCtx.fillRect(0, 0, logicalW, logicalH);
+      offCtx.fillRect(0, 0, baseW, baseH);
       offCtx.globalCompositeOperation = 'source-over'; // 복원
       gif.addFrame(offCtx, { copy: true, delay: Math.round(1000 / GIF_FPS) });
     }
@@ -253,8 +275,7 @@ export default function EffectPairPanel({
     gif.on('progress', (p) => setGifProgress(Math.round(p * 100)));
 
     gif.on('finished', (blob) => {
-      const safeName = title.toLowerCase().replace(/\s+/g, '-');
-      downloadBlob(blob, `${safeName}-logo.gif`);
+      downloadBlob(blob, `${exportPrefix}.gif`);
       setGifProgress(null);
     });
 
@@ -283,9 +304,10 @@ export default function EffectPairPanel({
     offscreen.width = logicalW;
     offscreen.height = logicalH;
     const offCtx = offscreen.getContext('2d');
+    offCtx.scale(scale, scale);
 
     const mergedParams = { ...animModule.getDefaultParams(), ...params };
-    const animState = animModule.init(sampleData, mergedParams, logicalW, logicalH);
+    const animState = animModule.init(sampleData, mergedParams, baseW, baseH);
 
     const stream = offscreen.captureStream(FPS);
     const mimeType = MediaRecorder.isTypeSupported('video/mp4')
@@ -299,8 +321,7 @@ export default function EffectPairPanel({
     recorder.onstop = () => {
       const blob = new Blob(chunks, { type: mimeType });
       const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-      const safeName = title.toLowerCase().replace(/\s+/g, '-');
-      downloadBlob(blob, `${safeName}-logo.${ext}`);
+      downloadBlob(blob, `${exportPrefix}.${ext}`);
       setVideoProgress(null);
     };
 
@@ -319,13 +340,13 @@ export default function EffectPairPanel({
 
       setVideoProgress(Math.floor(elapsed));
 
-      offCtx.clearRect(0, 0, logicalW, logicalH);
+      offCtx.clearRect(0, 0, baseW, baseH);
       animModule.drawFrame(offCtx, animState, elapsed);
 
       // 그린스크린 배경 합성
       offCtx.globalCompositeOperation = 'destination-over';
       offCtx.fillStyle = '#00ff00';
-      offCtx.fillRect(0, 0, logicalW, logicalH);
+      offCtx.fillRect(0, 0, baseW, baseH);
       offCtx.globalCompositeOperation = 'source-over';
 
       rafId = requestAnimationFrame(renderLoop);

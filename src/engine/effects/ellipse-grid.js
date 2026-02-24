@@ -5,7 +5,7 @@ export function getDefaultParams() {
     cols: 60,
     maxRy: 18,          // max vertical radius (px, relative to outputHeight=1000)
     eccentricity: 0.40, // rx = ry * eccentricity
-    speed: 2.0,         // animate-only (ignored by generate)
+    speed: 4.0,         // animate-only (ignored by generate)
     pulseFrac: 0.5,     // animate-only (ignored by generate)
     color: '#000000',
   };
@@ -13,11 +13,11 @@ export function getDefaultParams() {
 
 export function getParamSchema() {
   return [
-    { key: 'cols',         label: 'Columns',   min: 10,  max: 120, step: 1,    default: 60   },
-    { key: 'maxRy',        label: 'Max Size',  min: 4,   max: 40,  step: 1,    default: 18   },
-    { key: 'eccentricity', label: 'Shape Ratio',min: 0,  max: 1,   step: 0.01, default: 0.40 },
-    { key: 'speed',        label: 'Anim Speed', min: 0.1, max: 6,  step: 0.1,  default: 2.0  },
-    { key: 'pulseFrac',    label: 'Pulse Amount',min: 0, max: 1,   step: 0.01, default: 0.5  },
+    { key: 'cols', label: 'Grid', min: 10, max: 120, step: 1, default: 60 },
+    { key: 'maxRy', label: 'Size', min: 4, max: 40, step: 1, default: 18 },
+    { key: 'eccentricity', label: 'Shape', min: 0, max: 1, step: 0.01, default: 0.40 },
+    { key: 'speed', label: 'Speed', min: 0.1, max: 6, step: 0.1, default: 4.0 },
+    { key: 'pulseFrac', label: 'Pulse', min: 0, max: 1, step: 0.01, default: 0.5 },
   ];
 }
 

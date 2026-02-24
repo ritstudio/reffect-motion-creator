@@ -7,18 +7,18 @@ export function getDefaultParams() {
     minRadius: 0.5,
     seed: 42,           // internal only — not exposed in schema
     scatter: 1.0,       // jitter spread: 0 = tight inside logo, 3 = diffuse cloud
-    speed: 1.8,         // animate-only (ignored by generate)
+    speed: 4.0,         // animate-only (ignored by generate)
     color: '#000000',
   };
 }
 
 export function getParamSchema() {
   return [
-    { key: 'maxDots',   label: 'Dot Count',  min: 500, max: 12000, step: 100, default: 6000 },
-    { key: 'maxRadius', label: 'Max Radius', min: 1,   max: 15,    step: 0.5, default: 6    },
-    { key: 'minRadius', label: 'Min Radius', min: 0.1, max: 3,     step: 0.1, default: 0.5  },
-    { key: 'scatter',   label: 'Scatter',    min: 0,   max: 3,     step: 0.1, default: 1.0  },
-    { key: 'speed',     label: 'Anim Speed', min: 0.1, max: 6,     step: 0.1, default: 1.8  },
+    { key: 'maxDots', label: 'Density', min: 500, max: 12000, step: 100, default: 6000 },
+    { key: 'maxRadius', label: 'Max Size', min: 1, max: 15, step: 0.5, default: 6 },
+    { key: 'minRadius', label: 'Min Size', min: 0.1, max: 3, step: 0.1, default: 0.5 },
+    { key: 'scatter', label: 'Spread', min: 0, max: 3, step: 0.1, default: 1.0 },
+    { key: 'speed', label: 'Speed', min: 0.1, max: 6, step: 0.1, default: 4.0 },
   ];
 }
 
@@ -88,7 +88,13 @@ export function generate(sampleData, params, outputWidth, outputHeight) {
     const v = py / outputHeight;
     const darkness = 1 - sampleBilinear(grid, gridCols, gridRows, u, v);
 
-    const r = lerp(safeMinRadius, safeMaxRadius, darkness * (0.3 + rand() * 0.7));
+    const baseR = lerp(safeMinRadius, safeMaxRadius, darkness * (0.3 + rand() * 0.7));
+    if (baseR < 0.15) continue;
+
+    const ph = rand() * Math.PI * 2;
+    const pulse = 0.5 + 0.5 * Math.sin(ph);
+    const r = lerp(safeMinRadius, baseR, pulse);
+
     if (r < 0.15) continue;
 
     circles.push(`<circle cx="${px.toFixed(2)}" cy="${py.toFixed(2)}" r="${r.toFixed(2)}" fill="${color}"/>`);

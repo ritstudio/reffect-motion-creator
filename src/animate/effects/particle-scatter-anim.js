@@ -7,18 +7,18 @@ export function getDefaultParams() {
     minRadius: 0.5,
     seed: 42,
     scatter: 1.0,   // jitter spread: 0 = tight inside logo, 3 = diffuse cloud
-    speed: 1.8,     // rad/s — breathing speed
+    speed: 4.0,     // rad/s — breathing speed
     color: '#000000',
   };
 }
 
 export function getParamSchema() {
   return [
-    { key: 'maxDots',   label: 'Count',   min: 500, max: 12000, step: 100, default: 6000 },
-    { key: 'maxRadius', label: 'Max R',   min: 1,   max: 15,    step: 0.5, default: 6    },
-    { key: 'minRadius', label: 'Min R',   min: 0.1, max: 3,     step: 0.1, default: 0.5  },
-    { key: 'scatter',   label: 'Scatter', min: 0,   max: 3,     step: 0.1, default: 1.0  },
-    { key: 'speed',     label: 'Speed',   min: 0.1, max: 6,     step: 0.1, default: 1.8  },
+    { key: 'maxDots', label: 'Density', min: 500, max: 12000, step: 100, default: 6000 },
+    { key: 'maxRadius', label: 'Max Size', min: 1, max: 15, step: 0.5, default: 6 },
+    { key: 'minRadius', label: 'Min Size', min: 0.1, max: 3, step: 0.1, default: 0.5 },
+    { key: 'scatter', label: 'Spread', min: 0, max: 3, step: 0.1, default: 1.0 },
+    { key: 'speed', label: 'Speed', min: 0.1, max: 6, step: 0.1, default: 4.0 },
   ];
 }
 

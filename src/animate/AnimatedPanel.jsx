@@ -129,7 +129,7 @@ function downloadBlob(blob, filename) {
  * Generate 모드 EffectPanel과 동일한 레이아웃 (.effect-panel 클래스 재사용).
  * 각 패널이 자체 canvasRef, params state, export 기능을 독립적으로 가짐.
  */
-export default function AnimatedPanel({ title, sampleData, effectModule }) {
+export default function AnimatedPanel({ title, sampleData, effectModule, logoName = 'logo' }) {
   const schema = useMemo(() => effectModule.getParamSchema?.() ?? [], [effectModule]);
   const defaults = useMemo(() => effectModule.getDefaultParams(), [effectModule]);
 
@@ -140,16 +140,20 @@ export default function AnimatedPanel({ title, sampleData, effectModule }) {
   const canvasRef = useRef(null);
   const aspect = sampleData.svgWidth / sampleData.svgHeight;
 
+  // logoName에서 확장자를 제거하고 소문자/대시 형태로 변환
+  const baseLogoName = logoName.replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const safeName = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const exportPrefix = `${baseLogoName}_${safeName}`;
+
   function handleParam(key, value) {
     setParams((prev) => ({ ...prev, [key]: value }));
   }
 
   // 현재 params를 전달해 슬라이더 값이 반영된 HTML export
   function exportCode() {
-    const html = buildStandaloneHTML(title, effectModule, sampleData, params);
+    const html = buildStandaloneHTML(title, effectModule, sampleData, params, baseW, baseH);
     const blob = new Blob([html], { type: 'text/html' });
-    const safeName = title.toLowerCase().replace(/\s+/g, '-');
-    downloadBlob(blob, `${safeName}-logo.html`);
+    downloadBlob(blob, `${exportPrefix}.html`);
   }
 
   function exportGIF() {
@@ -172,9 +176,11 @@ export default function AnimatedPanel({ title, sampleData, effectModule }) {
     offscreen.width = logicalW;
     offscreen.height = logicalH;
     const offCtx = offscreen.getContext('2d');
+    offCtx.scale(scale, scale);
 
     const mergedParams = { ...effectModule.getDefaultParams(), ...params };
-    const animState = effectModule.init(sampleData, mergedParams, logicalW, logicalH);
+    // 파라미터 스케일 유지를 위해 baseW/baseH 전달
+    const animState = effectModule.init(sampleData, mergedParams, baseW, baseH);
 
     const gif = new GIF({
       workers: 2,
@@ -193,15 +199,14 @@ export default function AnimatedPanel({ title, sampleData, effectModule }) {
       effectModule.drawFrame(offCtx, animState, t);
       offCtx.globalCompositeOperation = 'destination-over';
       offCtx.fillStyle = '#ffffff';
-      offCtx.fillRect(0, 0, logicalW, logicalH);
+      offCtx.fillRect(0, 0, baseW, baseH);
       offCtx.globalCompositeOperation = 'source-over';
       gif.addFrame(offCtx, { copy: true, delay: Math.round(1000 / GIF_FPS) });
     }
 
     gif.on('progress', (p) => setGifProgress(Math.round(p * 100)));
     gif.on('finished', (blob) => {
-      const safeName = title.toLowerCase().replace(/\s+/g, '-');
-      downloadBlob(blob, `${safeName}-logo.gif`);
+      downloadBlob(blob, `${exportPrefix}.gif`);
       setGifProgress(null);
     });
 
@@ -246,8 +251,7 @@ export default function AnimatedPanel({ title, sampleData, effectModule }) {
     recorder.onstop = () => {
       const blob = new Blob(chunks, { type: mimeType });
       const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-      const safeName = title.toLowerCase().replace(/\s+/g, '-');
-      downloadBlob(blob, `${safeName}-logo.${ext}`);
+      downloadBlob(blob, `${exportPrefix}.${ext}`);
       setVideoProgress(null);
     };
 
@@ -266,12 +270,12 @@ export default function AnimatedPanel({ title, sampleData, effectModule }) {
 
       setVideoProgress(Math.floor(elapsed));
 
-      offCtx.clearRect(0, 0, logicalW, logicalH);
+      offCtx.clearRect(0, 0, baseW, baseH);
       effectModule.drawFrame(offCtx, animState, elapsed);
 
       offCtx.globalCompositeOperation = 'destination-over';
       offCtx.fillStyle = '#00ff00'; // Green screen
-      offCtx.fillRect(0, 0, logicalW, logicalH);
+      offCtx.fillRect(0, 0, baseW, baseH);
       offCtx.globalCompositeOperation = 'source-over';
 
       rafId = requestAnimationFrame(renderLoop);

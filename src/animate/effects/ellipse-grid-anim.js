@@ -5,7 +5,7 @@ export function getDefaultParams() {
     cols: 60,
     maxRy: 18,          // max vertical radius in logo-dark areas (px, at outputHeight=1000)
     eccentricity: 0.40, // rx = ry * eccentricity (narrow/tall shape)
-    speed: 2.0,         // rad/s
+    speed: 4.0,           // rad/s — rotation speed
     pulseFrac: 0.5,     // fraction of baseRy that oscillates
     color: '#000000',
   };
@@ -13,11 +13,11 @@ export function getDefaultParams() {
 
 export function getParamSchema() {
   return [
-    { key: 'cols',         label: 'Columns',  min: 10,  max: 120, step: 1,    default: 60   },
-    { key: 'maxRy',        label: 'Size',     min: 4,   max: 40,  step: 1,    default: 18   },
-    { key: 'eccentricity', label: 'Shape',    min: 0,   max: 1,   step: 0.01, default: 0.40 },
-    { key: 'pulseFrac',    label: 'Pulse',    min: 0,   max: 1,   step: 0.01, default: 0.5  },
-    { key: 'speed',        label: 'Speed',      min: 0.1, max: 6,  step: 0.1,  default: 2.0  },
+    { key: 'cols', label: 'Grid', min: 10, max: 120, step: 1, default: 60 },
+    { key: 'maxRy', label: 'Size', min: 4, max: 40, step: 1, default: 18 },
+    { key: 'eccentricity', label: 'Shape', min: 0, max: 1, step: 0.01, default: 0.40 },
+    { key: 'pulseFrac', label: 'Pulse', min: 0, max: 1, step: 0.01, default: 0.5 },
+    { key: 'speed', label: 'Speed', min: 0.1, max: 6, step: 0.1, default: 4.0 },
   ];
 }
 
@@ -88,10 +88,10 @@ export function drawFrame(ctx, animState, t) {
 
   const total = cols * rows;
   for (let i = 0; i < total; i++) {
-    const cx     = cellData[i * 4 + 0];
-    const cy     = cellData[i * 4 + 1];
+    const cx = cellData[i * 4 + 0];
+    const cy = cellData[i * 4 + 1];
     const baseRy = cellData[i * 4 + 2];
-    const phase  = cellData[i * 4 + 3];
+    const phase = cellData[i * 4 + 3];
 
     const pulse = 0.5 + 0.5 * Math.sin(t * speed + phase);
     const ry = lerp(baseRy * (1 - pulseFrac), baseRy, pulse);

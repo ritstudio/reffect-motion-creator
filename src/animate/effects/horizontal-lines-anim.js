@@ -6,8 +6,8 @@ export function getDefaultParams() {
     maxLength: 1.0,
     minLength: 0.08,
     minStroke: 0.5,   // minimum stroke width (px)
-    maxStroke: 11.0,  // maximum stroke width (px)
-    speed: 1.5,       // rad/s — wave travel speed
+    maxStroke: 6.0,   // maximum stroke width (px)
+    speed: 4.0,       // rad/s — wave travel speed
     waveFreq: 0.20,   // spatial frequency (rad per row)
     color: '#000000',
   };
@@ -15,11 +15,11 @@ export function getDefaultParams() {
 
 export function getParamSchema() {
   return [
-    { key: 'minStroke',   label: 'Min W',    min: 0.1, max: 3,   step: 0.1,  default: 0.5  },
-    { key: 'maxStroke',   label: 'Max W',    min: 1,   max: 20,  step: 0.5,  default: 11.0 },
-    { key: 'maxLength',   label: 'Length',   min: 0.2, max: 1.0, step: 0.01, default: 1.0  },
-    { key: 'waveFreq',    label: 'Spacing',  min: 0.01,max: 0.5, step: 0.01, default: 0.20 },
-    { key: 'speed',       label: 'Speed',      min: 0.1, max: 5,   step: 0.1,  default: 1.5  },
+    { key: 'minStroke', label: 'Min Width', min: 0.1, max: 3, step: 0.1, default: 0.5 },
+    { key: 'maxStroke', label: 'Max Width', min: 1, max: 10, step: 0.5, default: 6.0 },
+    { key: 'maxLength', label: 'Length', min: 0.2, max: 1.0, step: 0.01, default: 1.0 },
+    { key: 'waveFreq', label: 'Spacing', min: 0.01, max: 0.5, step: 0.01, default: 0.20 },
+    { key: 'speed', label: 'Speed', min: 0.1, max: 5, step: 0.1, default: 4.0 },
   ];
 }
 
@@ -98,8 +98,8 @@ export function drawFrame(ctx, animState, t) {
     ctx.lineWidth = strokeW;
 
     const offset = meta.segOffset;
-    const count  = meta.segCount;
-    const y      = meta.y;
+    const count = meta.segCount;
+    const y = meta.y;
 
     for (let s = 0; s < count; s++) {
       const x1 = segData[offset + s * 2];
