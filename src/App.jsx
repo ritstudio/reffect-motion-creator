@@ -1,0 +1,290 @@
+import { useState, useEffect, useCallback } from 'react';
+
+
+import { sampleSVG } from './engine/svg-sampler.js';
+
+// Generate mode effect modules
+import * as verticalLines    from './engine/effects/vertical-lines.js';
+import * as ellipseGrid      from './engine/effects/ellipse-grid.js';
+import * as horizontalLines  from './engine/effects/horizontal-lines.js';
+import * as particleScatter  from './engine/effects/particle-scatter.js';
+
+// Animate mode effect modules
+import * as verticalLinesAnim   from './animate/effects/vertical-lines-anim.js';
+import * as ellipseGridAnim     from './animate/effects/ellipse-grid-anim.js';
+import * as horizontalLinesAnim from './animate/effects/horizontal-lines-anim.js';
+import * as particleScatterAnim from './animate/effects/particle-scatter-anim.js';
+
+import SvgUploader      from './components/SvgUploader.jsx';
+import EffectPairPanel  from './components/EffectPairPanel.jsx';
+import './styles/app.css';
+
+// Fixed horizontal resolution for generate mode SVGs.
+// outputHeight is derived per-logo from the actual SVG aspect ratio so
+// the SVG coordinate space always matches the logo's proportions.
+const OUTPUT_W = 1000;
+
+// Effect pairs — generate + animate module for each effect.
+// Animate module is the canonical source for the unified param schema.
+const effectPairs = [
+  { title: 'Particle Scatter', genModule: particleScatter, animModule: particleScatterAnim },
+  { title: 'Ellipse Grid',     genModule: ellipseGrid,     animModule: ellipseGridAnim     },
+  { title: 'Horizontal Lines', genModule: horizontalLines, animModule: horizontalLinesAnim },
+  { title: 'Vertical Lines',   genModule: verticalLines,   animModule: verticalLinesAnim   },
+];
+
+export default function App() {
+  const [svgSource, setSvgSource] = useState(null);
+  const [logoName, setLogoName]   = useState('abc_logo.svg');
+  const [sampleData, setSampleData] = useState(null);
+  const [mode, setMode]           = useState('animate'); // 'generate' | 'animate'
+  const [darkMode, setDarkMode]    = useState(false);
+  const [gridCols, setGridCols]    = useState(2);
+  const [previewScale, setPreviewScale] = useState(0.8);
+  const [showInfo, setShowInfo]    = useState(false);
+
+  // Shared params for all 4 effect panels — persists across tab switches.
+  // Initialised from animModule (canonical unified schema source).
+  const [sharedParams, setSharedParams] = useState(() =>
+    effectPairs.map(({ animModule }) => animModule.getDefaultParams())
+  );
+
+  // Load default logo on mount
+  useEffect(() => {
+    fetch('/abc_logo.svg')
+      .then((r) => r.text())
+      .then((text) => setSvgSource(text))
+      .catch(console.error);
+  }, []);
+
+  // Re-sample whenever the SVG source changes (aspect-correct, 300 cols)
+  useEffect(() => {
+    if (!svgSource) {
+      setSampleData(null);
+      return;
+    }
+    let cancelled = false;
+    sampleSVG(svgSource, 300).then((data) => {
+      if (!cancelled) setSampleData(data);
+    });
+    return () => { cancelled = true; };
+  }, [svgSource]);
+
+  // Apply dark/light theme to document root
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
+  // Close info modal on Escape
+  useEffect(() => {
+    if (!showInfo) return;
+    const onKey = (e) => { if (e.key === 'Escape') setShowInfo(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showInfo]);
+
+  // Sync preview scale CSS variable
+  useEffect(() => {
+    document.documentElement.style.setProperty('--preview-scale', previewScale);
+  }, [previewScale]);
+
+  function handleSvgLoaded(text, name) {
+    setSvgSource(text);
+    setLogoName(name);
+  }
+
+  function handleClearLogo() {
+    setSvgSource(null);
+    setSampleData(null);
+    setLogoName('No logo');
+  }
+
+  // Param change handler — updates only the specific effect's params
+  const handleParamChange = useCallback((effectIdx, key, value) => {
+    setSharedParams((prev) => {
+      const next = [...prev];
+      next[effectIdx] = { ...next[effectIdx], [key]: value };
+      return next;
+    });
+  }, []);
+
+  // Compute SVG output dimensions that match the logo's true aspect ratio.
+  // FILMER (1075×221, 4.86:1) → outputWidth=1000, outputHeight=206
+  const outputWidth  = OUTPUT_W;
+  const outputHeight = sampleData
+    ? Math.max(1, Math.round(OUTPUT_W / (sampleData.svgWidth / sampleData.svgHeight)))
+    : OUTPUT_W;
+
+  return (
+    <>
+      <div className="top-controls">
+        <div className="top-controls-left">
+          <SvgUploader
+            currentName={logoName}
+            svgSource={svgSource}
+            onSvgLoaded={handleSvgLoaded}
+            onClear={handleClearLogo}
+          />
+        </div>
+        <div className="top-controls-center">
+          <div className="mode-toggle">
+            <div
+              className="mode-toggle-pill"
+              style={{ transform: `translateX(${mode === 'animate' ? '100%' : '0%'})` }}
+            />
+            <button
+              className={`mode-btn${mode === 'generate' ? ' active' : ''}`}
+              onClick={() => setMode('generate')}
+            >
+              Static
+            </button>
+            <button
+              className={`mode-btn${mode === 'animate' ? ' active' : ''}`}
+              onClick={() => setMode('animate')}
+            >
+              Motion
+            </button>
+          </div>
+        </div>
+        <div className="top-controls-right">
+          <div className="size-slider-wrap">
+            <span className="size-slider-label-sm">A</span>
+            <input
+              type="range"
+              className="size-slider-input"
+              min="0.4"
+              max="1"
+              step="0.01"
+              value={previewScale}
+              onChange={(e) => setPreviewScale(parseFloat(e.target.value))}
+              title={`Logo size: ${Math.round(previewScale * 100)}%`}
+            />
+            <span className="size-slider-label-lg">A</span>
+          </div>
+          <div className="view-toggle" title="Grid columns">
+            <div
+              className="view-toggle-pill"
+              style={{ transform: `translateX(${gridCols === 2 ? '100%' : '0%'})` }}
+            />
+            <button
+              className={`view-btn${gridCols === 1 ? ' active' : ''}`}
+              onClick={() => setGridCols(1)}
+              title="List view"
+            >
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor">
+                <rect x="0" y="0" width="14" height="4" rx="1"/>
+                <rect x="0" y="5" width="14" height="4" rx="1"/>
+                <rect x="0" y="10" width="14" height="4" rx="1"/>
+              </svg>
+            </button>
+            <button
+              className={`view-btn${gridCols === 2 ? ' active' : ''}`}
+              onClick={() => setGridCols(2)}
+              title="Grid view"
+            >
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor">
+                <rect x="0" y="0" width="6" height="6" rx="1"/>
+                <rect x="8" y="0" width="6" height="6" rx="1"/>
+                <rect x="0" y="8" width="6" height="6" rx="1"/>
+                <rect x="8" y="8" width="6" height="6" rx="1"/>
+              </svg>
+            </button>
+          </div>
+          <div className="view-toggle" title="Theme">
+            <div
+              className="view-toggle-pill"
+              style={{ transform: `translateX(${darkMode ? '100%' : '0%'})` }}
+            />
+            <button
+              className={`view-btn${!darkMode ? ' active' : ''}`}
+              onClick={() => setDarkMode(false)}
+              title="Light mode"
+            >
+              {/* Sun icon */}
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/>
+                <line x1="8" y1="1" x2="8" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="8" y1="13" x2="8" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="1" y1="8" x2="3" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="13" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="3.05" y1="3.05" x2="4.46" y2="4.46" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="11.54" y1="11.54" x2="12.95" y2="12.95" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="12.95" y1="3.05" x2="11.54" y2="4.46" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="4.46" y1="11.54" x2="3.05" y2="12.95" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <button
+              className={`view-btn${darkMode ? ' active' : ''}`}
+              onClick={() => setDarkMode(true)}
+              title="Dark mode"
+            >
+              {/* Moon icon */}
+              <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+                <path d="M11.5 9A5.5 5.5 0 0 1 5 2.5a5.5 5.5 0 1 0 6.5 6.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* panel grid — layout controlled by gridCols state */}
+      <div className={`effects-grid${gridCols === 1 ? ' single-col' : ''}`}>
+        {effectPairs.map((pair, idx) => (
+          <EffectPairPanel
+            key={pair.title}
+            mode={mode}
+            title={pair.title}
+            sampleData={sampleData}
+            genModule={pair.genModule}
+            animModule={pair.animModule}
+            outputWidth={outputWidth}
+            outputHeight={outputHeight}
+            params={sharedParams[idx]}
+            onParamChange={(key, value) => handleParamChange(idx, key, value)}
+          />
+        ))}
+      </div>
+
+      {/* ── Floating info button ── */}
+      <button className="info-fab" onClick={() => setShowInfo(true)} title="About">
+        i
+      </button>
+
+      {/* ── Info modal ── */}
+      {showInfo && (
+        <div className="info-overlay" onClick={() => setShowInfo(false)}>
+          <div className="info-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="info-modal-close" onClick={() => setShowInfo(false)}>×</button>
+
+            <h2 className="info-modal-title">effect - 로고 모션 이펙트</h2>
+            <p className="info-modal-tagline">현재 베타 버전입니다. 추후에 이펙트가 추가될 예정입니다.</p>
+
+            <section className="info-section">
+              <h3>How to Use</h3>
+              <ol>
+                <li><strong>Upload</strong> — SVG 로고를 업로드하여 사용하세요.</li>
+                <li><strong>Mode</strong> — 상단의 Static탭은 SVG 이미지, Motion탭은 애니메이션 캔버스입니다.</li>
+                <li><strong>Adjust</strong> — 각 이펙트 패널의 하단 슬라이더로 이펙트 파라미터를 조절하세요.</li>
+                <li><strong>Export</strong> — SVG / HTML / WebM 파일 중 원하는 형식으로 내보내세요.</li>
+              </ol>
+            </section>
+
+            <section className="info-section">
+              <h3>Effects</h3>
+              <ul>
+                <li><strong>Particle Scatter</strong> — 로고 형태를 따라 흩어지는 파티클</li>
+                <li><strong>Ellipse Grid</strong> — 격자 형태의 타원이 펄스 애니메이션</li>
+                <li><strong>Horizontal Lines</strong> — 굵기가 변하는 수평 라인 웨이브</li>
+                <li><strong>Vertical Lines</strong> — 높이가 출렁이는 수직 세그먼트</li>
+              </ul>
+            </section>
+
+            <footer className="info-modal-footer">
+              Created by <a href="https://www.ritstudio.kr" target="_blank" rel="noreferrer">RIT STUDIO®</a>
+            </footer>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
