@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
+import GIF from 'gif.js';
 import AnimatedCanvas from './AnimatedCanvas.jsx';
 import ParamSlider from '../components/ParamSlider.jsx';
 
@@ -31,13 +32,16 @@ function sampleBilinear(grid, cols, rows, u, v) {
 }
 `.trim();
 
-function buildStandaloneHTML(title, effectModule, sampleData) {
+// params 인자를 받아 현재 슬라이더 값을 HTML에 직렬화
+function buildStandaloneHTML(title, effectModule, sampleData, params) {
   const gridJSON = JSON.stringify(
     sampleData.grid.map((row) => Array.from(row)),
   );
   const getDefaultParamsSrc = effectModule.getDefaultParams.toString();
-  const initSrc             = effectModule.init.toString();
-  const drawFrameSrc        = effectModule.drawFrame.toString();
+  const initSrc = effectModule.init.toString();
+  const drawFrameSrc = effectModule.drawFrame.toString();
+  // 현재 params를 직렬화하여 export된 HTML에 반영
+  const paramsJSON = JSON.stringify(params);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -62,6 +66,7 @@ const SAMPLE_DATA = {
   svgHeight: ${sampleData.svgHeight},
 };
 const LOGO_ASPECT = SAMPLE_DATA.svgWidth / SAMPLE_DATA.svgHeight;
+const PARAMS = ${paramsJSON};
 
 ${MATH_UTILS_SRC}
 
@@ -81,7 +86,7 @@ function setup(w, h) {
   ctx = canvas.getContext('2d');
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.scale(dpr, dpr);
-  animState = init(SAMPLE_DATA, getDefaultParams(), w, h);
+  animState = init(SAMPLE_DATA, { ...getDefaultParams(), ...PARAMS }, w, h);
 }
 
 function loop(ts) {
@@ -105,15 +110,15 @@ function resize() {
 
 window.addEventListener('resize', resize);
 resize();
-</script>
+<\/script>
 </body>
 </html>`;
 }
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href     = url;
+  const a = document.createElement('a');
+  a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
@@ -125,54 +130,82 @@ function downloadBlob(blob, filename) {
  * 각 패널이 자체 canvasRef, params state, export 기능을 독립적으로 가짐.
  */
 export default function AnimatedPanel({ title, sampleData, effectModule }) {
-  const schema   = useMemo(() => effectModule.getParamSchema?.() ?? [], [effectModule]);
-  const defaults = useMemo(() => effectModule.getDefaultParams(),       [effectModule]);
+  const schema = useMemo(() => effectModule.getParamSchema?.() ?? [], [effectModule]);
+  const defaults = useMemo(() => effectModule.getDefaultParams(), [effectModule]);
 
-  const [params, setParams]         = useState(defaults);
-  const [collapsed, setCollapsed]   = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
+  const [params, setParams] = useState(defaults);
+  const [collapsed, setCollapsed] = useState(false);
+  const [gifProgress, setGifProgress] = useState(null); // null | 0-100
 
   const canvasRef = useRef(null);
-  const aspect    = sampleData.svgWidth / sampleData.svgHeight;
+  const aspect = sampleData.svgWidth / sampleData.svgHeight;
 
   function handleParam(key, value) {
     setParams((prev) => ({ ...prev, [key]: value }));
   }
 
+  // 현재 params를 전달해 슬라이더 값이 반영된 HTML export
   function exportCode() {
-    const html = buildStandaloneHTML(title, effectModule, sampleData);
+    const html = buildStandaloneHTML(title, effectModule, sampleData, params);
     const blob = new Blob([html], { type: 'text/html' });
     const safeName = title.toLowerCase().replace(/\s+/g, '-');
     downloadBlob(blob, `${safeName}-logo.html`);
   }
 
-  function exportWebM() {
+  function exportGIF() {
     const canvas = canvasRef.current;
-    if (!canvas || isRecording) return;
+    if (!canvas || gifProgress !== null) return;
 
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9'
-      : 'video/webm';
+    const GIF_FPS = 20;
+    const GIF_SECS = 3;
+    const TOTAL_FRAMES = GIF_FPS * GIF_SECS;
 
-    const stream   = canvas.captureStream(60);
-    const recorder = new MediaRecorder(stream, {
-      mimeType,
-      videoBitsPerSecond: 8_000_000,
+    const dpr = window.devicePixelRatio || 1;
+    const logicalW = Math.round(canvas.width / dpr);
+    const logicalH = Math.round(canvas.height / dpr);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = logicalW;
+    offscreen.height = logicalH;
+    const offCtx = offscreen.getContext('2d');
+
+    const mergedParams = { ...effectModule.getDefaultParams(), ...params };
+    const animState = effectModule.init(sampleData, mergedParams, logicalW, logicalH);
+
+    const gif = new GIF({
+      workers: 2,
+      quality: 6,
+      width: logicalW,
+      height: logicalH,
+      workerScript: '/gif.worker.js',
     });
-    const chunks = [];
 
-    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
+    setGifProgress(0);
+
+    for (let i = 0; i < TOTAL_FRAMES; i++) {
+      const t = i / GIF_FPS;
+      // drawFrame 내부 clearRect가 배경을 지우므로
+      // destination-over로 drawFrame 이후에 흰색을 효과 아래에 합성
+      effectModule.drawFrame(offCtx, animState, t);
+      offCtx.globalCompositeOperation = 'destination-over';
+      offCtx.fillStyle = '#ffffff';
+      offCtx.fillRect(0, 0, logicalW, logicalH);
+      offCtx.globalCompositeOperation = 'source-over';
+      gif.addFrame(offCtx, { copy: true, delay: Math.round(1000 / GIF_FPS) });
+    }
+
+    gif.on('progress', (p) => setGifProgress(Math.round(p * 100)));
+    gif.on('finished', (blob) => {
       const safeName = title.toLowerCase().replace(/\s+/g, '-');
-      downloadBlob(blob, `${safeName}-logo.webm`);
-      setIsRecording(false);
-    };
+      downloadBlob(blob, `${safeName}-logo.gif`);
+      setGifProgress(null);
+    });
 
-    setIsRecording(true);
-    recorder.start();
-    setTimeout(() => recorder.stop(), 10_000);
+    gif.render();
   }
+
+  const isExportingGIF = gifProgress !== null;
+  const gifLabel = isExportingGIF ? `● ${gifProgress}%` : 'GIF';
 
   return (
     <div className="effect-panel">
@@ -193,10 +226,10 @@ export default function AnimatedPanel({ title, sampleData, effectModule }) {
           </button>
           <button
             className="export-btn"
-            onClick={exportWebM}
-            disabled={isRecording}
+            onClick={exportGIF}
+            disabled={isExportingGIF}
           >
-            {isRecording ? '● 10s' : 'WebM'}
+            {gifLabel}
           </button>
         </div>
       </div>

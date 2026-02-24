@@ -1,8 +1,11 @@
 import { useState, useMemo, useRef } from 'react';
+import GIF from 'gif.js';
 import AnimatedCanvas from '../animate/AnimatedCanvas.jsx';
 import ParamSlider from './ParamSlider.jsx';
 
 // ── Math utils inlined for standalone HTML export ─────────────────────────
+// These are injected as globals so that effect module functions serialised
+// via .toString() can reference lerp / sampleBilinear / mulberry32 directly.
 const MATH_UTILS_SRC = `
 function lerp(a, b, t) { return a + (b - a) * t; }
 function clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
@@ -31,14 +34,16 @@ function sampleBilinear(grid, cols, rows, u, v) {
 }
 `.trim();
 
+// ── Build standalone HTML — embeds sampleData + current params ────────────
 function buildStandaloneHTML(title, animModule, sampleData, params) {
   const gridJSON = JSON.stringify(
     sampleData.grid.map((row) => Array.from(row)),
   );
   const getDefaultParamsSrc = animModule.getDefaultParams.toString();
-  const initSrc             = animModule.init.toString();
-  const drawFrameSrc        = animModule.drawFrame.toString();
-  const paramsJSON          = JSON.stringify(params);
+  const initSrc = animModule.init.toString();
+  const drawFrameSrc = animModule.drawFrame.toString();
+  // Serialise the *current* params so the exported HTML respects slider values
+  const paramsJSON = JSON.stringify(params);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -63,6 +68,7 @@ const SAMPLE_DATA = {
   svgHeight: ${sampleData.svgHeight},
 };
 const LOGO_ASPECT = SAMPLE_DATA.svgWidth / SAMPLE_DATA.svgHeight;
+// Current params from the editor (slider values at time of export)
 const PARAMS = ${paramsJSON};
 
 ${MATH_UTILS_SRC}
@@ -83,6 +89,7 @@ function setup(w, h) {
   ctx = canvas.getContext('2d');
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.scale(dpr, dpr);
+  // Merge editor params over defaults so exported file matches what was seen
   animState = init(SAMPLE_DATA, { ...getDefaultParams(), ...PARAMS }, w, h);
 }
 
@@ -107,15 +114,15 @@ function resize() {
 
 window.addEventListener('resize', resize);
 resize();
-</script>
+<\/script>
 </body>
 </html>`;
 }
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href     = url;
+  const a = document.createElement('a');
+  a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
@@ -155,8 +162,8 @@ export default function EffectPairPanel({
   // Schema comes from animModule (the canonical unified schema)
   const schema = useMemo(() => animModule.getParamSchema(), [animModule]);
   const motionOnlyKeys = new Set(['speed', 'waveFreq', 'waveAmp', 'pulseFrac']);
-  const [collapsed, setCollapsed]     = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [gifProgress, setGifProgress] = useState(null); // null | 0-100
   const canvasRef = useRef(null);
 
   const aspect = sampleData ? sampleData.svgWidth / sampleData.svgHeight : 1;
@@ -177,40 +184,81 @@ export default function EffectPairPanel({
 
   // ── Export standalone HTML (animate mode) ────────────────────────────────
   function exportCode() {
+    if (!sampleData) return;
+    // Pass current params so exported HTML reflects slider values
     const html = buildStandaloneHTML(title, animModule, sampleData, params);
     const blob = new Blob([html], { type: 'text/html' });
     const safeName = title.toLowerCase().replace(/\s+/g, '-');
     downloadBlob(blob, `${safeName}-logo.html`);
   }
 
-  // ── Export WebM — 10-second canvas recording ─────────────────────────────
-  function exportWebM() {
+  // ── Export GIF — transparent background, ~3 sec loop ─────────────────────
+  // gif.js의 transparent 옵션 동작 방식:
+  //   - canvas에서 alpha=0인 픽셀을 GIF 팅팩스 피랫 엔트리로 매핑
+  //   - transparent 값은 "어떤 RGB 색상을 투명 팩레트 인덱스로 쓸 것인가"
+  //   - 중요: transparent RGB == 효과 그리기 색상(검정)0x000000이면
+  //     gif.js가 팸레트 인덱스를 혼동해서 효과도 투명 처리→ 아무것도 안보임
+  //   → 0x00ff00 (라임그린)을 투명 인덱스로 지정하면 충돌 없음
+  //   → 배경은 clearRect(알파=0)로 지우면 gif.js가 알파=0 픽셀→투명으로 인식
+  function exportGIF() {
     const canvas = canvasRef.current;
-    if (!canvas || isRecording) return;
+    if (!canvas || gifProgress !== null) return;
 
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9'
-      : 'video/webm';
+    const GIF_FPS = 20;
+    const GIF_SECS = 3;
+    const TOTAL_FRAMES = GIF_FPS * GIF_SECS;
 
-    const stream   = canvas.captureStream(60);
-    const recorder = new MediaRecorder(stream, {
-      mimeType,
-      videoBitsPerSecond: 8_000_000,
+    const dpr = window.devicePixelRatio || 1;
+    const logicalW = Math.round(canvas.width / dpr);
+    const logicalH = Math.round(canvas.height / dpr);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = logicalW;
+    offscreen.height = logicalH;
+    const offCtx = offscreen.getContext('2d', { willReadFrequently: true });
+
+    const mergedParams = { ...animModule.getDefaultParams(), ...params };
+    const animState = animModule.init(sampleData, mergedParams, logicalW, logicalH);
+
+    const gif = new GIF({
+      workers: 2,
+      quality: 6,
+      width: logicalW,
+      height: logicalH,
+      workerScript: '/gif.worker.js',
+      // transparent 옵션 없이 흡색 배경을 사용
+      // gif.js의 팅작스 투명도 정적 포맷이 팔레트 양자화 문제로 신뢰비 낮음
     });
-    const chunks = [];
 
-    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
+    setGifProgress(0);
+
+    for (let i = 0; i < TOTAL_FRAMES; i++) {
+      const t = i / GIF_FPS;
+      // ⚠️ drawFrame 내부에서 ctx.clearRect()를 먼저 호출하므로
+      // fillRect로 미리 깐 배경이 지워짐.
+      // destination-over: 기존 픽셀 아래에 새로운 색상을 합성
+      // → drawFrame 이후에 흰색을 효과 "아래" 에 깔기
+      animModule.drawFrame(offCtx, animState, t);
+      offCtx.globalCompositeOperation = 'destination-over';
+      offCtx.fillStyle = '#ffffff';
+      offCtx.fillRect(0, 0, logicalW, logicalH);
+      offCtx.globalCompositeOperation = 'source-over'; // 복원
+      gif.addFrame(offCtx, { copy: true, delay: Math.round(1000 / GIF_FPS) });
+    }
+
+    gif.on('progress', (p) => setGifProgress(Math.round(p * 100)));
+
+    gif.on('finished', (blob) => {
       const safeName = title.toLowerCase().replace(/\s+/g, '-');
-      downloadBlob(blob, `${safeName}-logo.webm`);
-      setIsRecording(false);
-    };
+      downloadBlob(blob, `${safeName}-logo.gif`);
+      setGifProgress(null);
+    });
 
-    setIsRecording(true);
-    recorder.start();
-    setTimeout(() => recorder.stop(), 10_000);
+    gif.render();
   }
+
+  const isExportingGIF = gifProgress !== null;
+  const gifLabel = isExportingGIF ? `● ${gifProgress}%` : 'GIF';
 
   return (
     <div className="effect-panel">
@@ -229,11 +277,11 @@ export default function EffectPairPanel({
                 Code
               </button>
               <button
-                className="export-btn export-btn-webm"
-                onClick={exportWebM}
-                disabled={isRecording}
+                className="export-btn export-btn-gif"
+                onClick={exportGIF}
+                disabled={isExportingGIF}
               >
-                {isRecording ? '● 10s' : 'WebM'}
+                {gifLabel}
               </button>
             </>
           )}

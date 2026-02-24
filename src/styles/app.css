@@ -905,7 +905,7 @@ html, body {
   border-color: #e0e0e0;
 }
 
-.export-btn-webm {
+.export-btn-gif {
   background: #ffffff;
   border-color: #e0e0e0;
 }
@@ -1446,7 +1446,7 @@ html, body {
 /* Export buttons — unified style in dark mode */
 [data-theme="dark"] .export-btn,
 [data-theme="dark"] .export-btn-code,
-[data-theme="dark"] .export-btn-webm,
+[data-theme="dark"] .export-btn-gif,
 [data-theme="dark"] .export-btn-svg {
   background: #2e2e32;
   color: #ccc;
