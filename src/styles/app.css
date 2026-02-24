@@ -6,16 +6,20 @@
 
 :root {
   --header-h: 64px;
-  --mode-btn-h: 35px;  /* mode-toggle 전체 높이 (btn padding 7×2 + font ~17 + toggle padding 2×2) */
+  --mode-btn-h: 35px;
+  /* mode-toggle 전체 높이 (btn padding 7×2 + font ~17 + toggle padding 2×2) */
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   color: #111;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-html, body {
+html,
+body {
   background: #fff;
 }
 
@@ -321,7 +325,7 @@ html, body {
   flex-shrink: 0;
 }
 
-.anim-switch input:checked ~ .anim-switch-track {
+.anim-switch input:checked~.anim-switch-track {
   background: #222;
 }
 
@@ -340,7 +344,7 @@ html, body {
   justify-content: center;
 }
 
-.anim-switch input:checked ~ .anim-switch-track .anim-switch-thumb {
+.anim-switch input:checked~.anim-switch-track .anim-switch-thumb {
   transform: translateX(18px);
 }
 
@@ -379,7 +383,9 @@ html, body {
   background: rgba(118, 118, 128, 0.18);
 }
 
-.upload-zone input { display: none; }
+.upload-zone input {
+  display: none;
+}
 
 .upload-combined {
   padding: 0;
@@ -425,7 +431,7 @@ html, body {
   position: absolute;
   top: 0;
   right: 0;
-  transform: translate(50%,-50%);
+  transform: translate(50%, -50%);
   width: 16px;
   height: 16px;
   border: 1px solid #e0e0e0;
@@ -679,8 +685,15 @@ html, body {
 }
 
 @keyframes bubbleFadeIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(3px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .control-item input[type='range'] {
@@ -791,7 +804,8 @@ html, body {
   grid-template-rows: 1fr 1fr;
   gap: 1px;
   background: #e8e8e8;
-  min-height: 0; /* essential for flex child to shrink */
+  min-height: 0;
+  /* essential for flex child to shrink */
 }
 
 /* Each panel: white card with label + canvas area */
@@ -825,6 +839,7 @@ html, body {
 
 /* ── Responsive ── */
 @media (max-width: 640px) {
+
   .effects-grid,
   .anim-grid {
     grid-template-columns: 1fr;
@@ -892,7 +907,7 @@ html, body {
   letter-spacing: 0.04em;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .export-btn:hover:not(:disabled) {
@@ -905,7 +920,8 @@ html, body {
   border-color: #e0e0e0;
 }
 
-.export-btn-gif {
+.export-btn-gif,
+.export-btn-video {
   background: #ffffff;
   border-color: #e0e0e0;
 }
@@ -998,8 +1014,13 @@ html, body {
 }
 
 @keyframes infoFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* ── Info modal card ── */
@@ -1016,8 +1037,15 @@ html, body {
 }
 
 @keyframes infoSlideUp {
-  from { opacity: 0; transform: translateY(16px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .info-modal-close {
@@ -1293,7 +1321,7 @@ html, body {
   position: absolute;
   top: 0;
   right: 0;
-  transform: translate(50%,-50%);
+  transform: translate(50%, -50%);
   width: 16px;
   height: 16px;
   border: 1px solid #e0e0e0;
@@ -1366,7 +1394,7 @@ html, body {
   background: rgba(118, 118, 128, 0.24);
 }
 
-[data-theme="dark"] .anim-switch input:checked ~ .anim-switch-track {
+[data-theme="dark"] .anim-switch input:checked~.anim-switch-track {
   background: rgba(118, 118, 128, 0.24);
 }
 
@@ -1375,7 +1403,7 @@ html, body {
   box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="dark"] .anim-switch input:checked ~ .anim-switch-track .anim-switch-thumb {
+[data-theme="dark"] .anim-switch input:checked~.anim-switch-track .anim-switch-thumb {
   background: rgba(98, 98, 106, 0.9);
 }
 
@@ -1447,11 +1475,12 @@ html, body {
 [data-theme="dark"] .export-btn,
 [data-theme="dark"] .export-btn-code,
 [data-theme="dark"] .export-btn-gif,
+[data-theme="dark"] .export-btn-video,
 [data-theme="dark"] .export-btn-svg {
   background: #2e2e32;
   color: #ccc;
   border-color: #484848;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 [data-theme="dark"] .export-btn:hover:not(:disabled) {

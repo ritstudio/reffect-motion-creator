@@ -209,8 +209,12 @@ export default function EffectPairPanel({
     const TOTAL_FRAMES = GIF_FPS * GIF_SECS;
 
     const dpr = window.devicePixelRatio || 1;
-    const logicalW = Math.round(canvas.width / dpr);
-    const logicalH = Math.round(canvas.height / dpr);
+    const baseW = Math.round(canvas.width / dpr);
+    const baseH = Math.round(canvas.height / dpr);
+    // 화면 비율을 그대로 유지하되 고해상도(높이 1080)로 추출
+    const scale = 1080 / baseH;
+    const logicalW = Math.round(baseW * scale);
+    const logicalH = 1080;
 
     const offscreen = document.createElement('canvas');
     offscreen.width = logicalW;
@@ -257,8 +261,83 @@ export default function EffectPairPanel({
     gif.render();
   }
 
+  // ── Export Video — green screen background, 10 sec recording ───────────────
+  const [videoProgress, setVideoProgress] = useState(null); // null | 0-10
+
+  function exportVideo() {
+    const canvas = canvasRef.current;
+    if (!canvas || videoProgress !== null) return;
+
+    const VIDEO_SECS = 10;
+    const FPS = 60;
+
+    const dpr = window.devicePixelRatio || 1;
+    const baseW = Math.round(canvas.width / dpr);
+    const baseH = Math.round(canvas.height / dpr);
+    // 화면 비율을 그대로 유지하되 고해상도(높이 1080)로 추출
+    const scale = 1080 / baseH;
+    const logicalW = Math.round(baseW * scale);
+    const logicalH = 1080;
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = logicalW;
+    offscreen.height = logicalH;
+    const offCtx = offscreen.getContext('2d');
+
+    const mergedParams = { ...animModule.getDefaultParams(), ...params };
+    const animState = animModule.init(sampleData, mergedParams, logicalW, logicalH);
+
+    const stream = offscreen.captureStream(FPS);
+    const mimeType = MediaRecorder.isTypeSupported('video/mp4')
+      ? 'video/mp4'
+      : (MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm');
+
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+    const chunks = [];
+
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: mimeType });
+      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const safeName = title.toLowerCase().replace(/\s+/g, '-');
+      downloadBlob(blob, `${safeName}-logo.${ext}`);
+      setVideoProgress(null);
+    };
+
+    setVideoProgress(0);
+    recorder.start();
+
+    let startMs = performance.now();
+    let rafId;
+
+    function renderLoop(now) {
+      const elapsed = (now - startMs) / 1000;
+      if (elapsed >= VIDEO_SECS) {
+        recorder.stop();
+        return;
+      }
+
+      setVideoProgress(Math.floor(elapsed));
+
+      offCtx.clearRect(0, 0, logicalW, logicalH);
+      animModule.drawFrame(offCtx, animState, elapsed);
+
+      // 그린스크린 배경 합성
+      offCtx.globalCompositeOperation = 'destination-over';
+      offCtx.fillStyle = '#00ff00';
+      offCtx.fillRect(0, 0, logicalW, logicalH);
+      offCtx.globalCompositeOperation = 'source-over';
+
+      rafId = requestAnimationFrame(renderLoop);
+    }
+
+    rafId = requestAnimationFrame(renderLoop);
+  }
+
   const isExportingGIF = gifProgress !== null;
+  const isExportingVideo = videoProgress !== null;
   const gifLabel = isExportingGIF ? `● ${gifProgress}%` : 'GIF';
+  const videoLabel = isExportingVideo ? `● ${videoProgress}s` : 'Video';
 
   return (
     <div className="effect-panel">
@@ -279,9 +358,16 @@ export default function EffectPairPanel({
               <button
                 className="export-btn export-btn-gif"
                 onClick={exportGIF}
-                disabled={isExportingGIF}
+                disabled={isExportingGIF || isExportingVideo}
               >
                 {gifLabel}
+              </button>
+              <button
+                className="export-btn export-btn-video"
+                onClick={exportVideo}
+                disabled={isExportingGIF || isExportingVideo}
+              >
+                {videoLabel}
               </button>
             </>
           )}
