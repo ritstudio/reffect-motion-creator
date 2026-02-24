@@ -247,7 +247,7 @@ export default function App() {
 
       {/* ── Floating info button ── */}
       <button className="info-fab" onClick={() => setShowInfo(true)} title="About">
-        <img src="/favicon-rit.svg" alt="About" />
+        <img src="/favicon-rit.svg" alt="Info" />
       </button>
 
       {/* ── Info modal ── */}
@@ -256,7 +256,7 @@ export default function App() {
           <div className="info-modal" onClick={(e) => e.stopPropagation()}>
             <button className="info-modal-close" onClick={() => setShowInfo(false)}>×</button>
 
-            <h2 className="info-modal-title">effect - 로고 모션 이펙트</h2>
+            <h2 className="info-modal-title">effect - Motion Creator</h2>
             <p className="info-modal-tagline">현재 베타 버전입니다. 추후에 이펙트가 추가될 예정입니다.</p>
 
             <section className="info-section">
@@ -275,7 +275,7 @@ export default function App() {
                 <li><strong>Particle Scatter</strong> — 로고 형태를 따라 흩어지는 파티클</li>
                 <li><strong>Ellipse Grid</strong> — 격자 형태의 타원이 펄스 애니메이션</li>
                 <li><strong>Horizontal Lines</strong> — 굵기가 변하는 수평 라인 웨이브</li>
-                <li><strong>Vertical Lines</strong> — 높이가 출렁이는 수직 세그먼트</li>
+                <li><strong>Vertical Lines</strong> — 굵기가 변하는 수직 라인 웨이브</li>
               </ul>
             </section>
 
