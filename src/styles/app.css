@@ -950,12 +950,12 @@ html, body {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: #111;
   color: #fff;
-  font-size: 15px;
+  font-size: 19px;
   font-weight: 700;
   font-style: italic;
   font-family: Georgia, serif;
@@ -977,8 +977,8 @@ html, body {
 
 /* Image inside floating FAB */
 .info-fab img {
-  width: 18px;
-  height: 18px;
+  width: 23px;
+  height: 23px;
   object-fit: contain;
   display: block;
 }
