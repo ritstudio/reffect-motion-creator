@@ -44,8 +44,15 @@ export function generate(sampleData, params, outputWidth, outputHeight) {
   const cellW = outputWidth / cols;
   const cellH = outputHeight / rows;
 
+  const safeMaxStroke = Math.max(minStroke, maxStroke);
+  const safeMinStroke = Math.min(minStroke, safeMaxStroke);
+
+  const maxStrokeByCell = cellW * 1.35;
+  const effectiveMaxStroke = Math.min(safeMaxStroke, maxStrokeByCell);
+  const effectiveMinStroke = Math.min(safeMinStroke, effectiveMaxStroke);
+
   // Static: use midpoint stroke width
-  const strokeWidth = (minStroke + maxStroke) / 2;
+  const strokeWidth = (effectiveMinStroke + effectiveMaxStroke) / 2;
 
   let pathD = '';
 
@@ -71,6 +78,6 @@ export function generate(sampleData, params, outputWidth, outputHeight) {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${outputWidth}" height="${outputHeight}" viewBox="0 0 ${outputWidth} ${outputHeight}">
   <rect width="${outputWidth}" height="${outputHeight}" fill="none"/>
-  <path d="${pathD}" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="butt" fill="none"/>
+  <path d="${pathD}" stroke="${color}" stroke-width="${strokeWidth.toFixed(1)}" stroke-linecap="butt" fill="none"/>
 </svg>`;
 }

@@ -494,7 +494,7 @@ body {
   grid-auto-rows: 1fr;
   gap: 1px;
   background: rgba(0, 0, 0, 0.09);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 /* Minimum panel height — kicks in when there are more than 4 panels,
@@ -510,11 +510,6 @@ body {
 
 .effects-grid.single-col .effect-panel {
   min-height: calc(100svh - var(--header-h));
-}
-
-/* In single-column mode allow vertical scrolling so panels beyond the first are reachable */
-.effects-grid.single-col {
-  overflow-y: auto;
 }
 
 /* In single-col view, wider panel → more auto-fill columns */

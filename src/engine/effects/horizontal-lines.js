@@ -46,11 +46,12 @@ export function generate(sampleData, params, outputWidth, outputHeight) {
   const maxStrokeByCell = cellH * 1.35;
   const effectiveMaxStroke = Math.min(safeMaxStroke, maxStrokeByCell);
   const effectiveMinStroke = Math.min(safeMinStroke, effectiveMaxStroke);
-  // Stroke width = midpoint between min and max (static snapshot)
-  const strokeWidth = (effectiveMinStroke + effectiveMaxStroke) / 2;
 
   const cols = gridCols;
   const cellW = outputWidth / cols;
+
+  // Static: use midpoint stroke width
+  const strokeWidth = (effectiveMinStroke + effectiveMaxStroke) / 2;
 
   let pathD = '';
 

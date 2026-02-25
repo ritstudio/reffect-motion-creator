@@ -8,12 +8,16 @@ import * as verticalLines from './engine/effects/vertical-lines.js';
 import * as ellipseGrid from './engine/effects/ellipse-grid.js';
 import * as horizontalLines from './engine/effects/horizontal-lines.js';
 import * as particleScatter from './engine/effects/particle-scatter.js';
+import * as starGlint from './engine/effects/star-glint.js';
+import * as lineHalftone from './engine/effects/line-halftone.js';
 
 // Animate mode effect modules
 import * as verticalLinesAnim from './animate/effects/vertical-lines-anim.js';
 import * as ellipseGridAnim from './animate/effects/ellipse-grid-anim.js';
 import * as horizontalLinesAnim from './animate/effects/horizontal-lines-anim.js';
 import * as particleScatterAnim from './animate/effects/particle-scatter-anim.js';
+import * as starGlintAnim from './animate/effects/star-glint-anim.js';
+import * as lineHalftoneAnim from './animate/effects/line-halftone-anim.js';
 
 import SvgUploader from './components/SvgUploader.jsx';
 import EffectPairPanel from './components/EffectPairPanel.jsx';
@@ -34,6 +38,8 @@ const effectPairs = [
   { title: 'Ellipse Grid', genModule: ellipseGrid, animModule: ellipseGridAnim },
   { title: 'Horizontal Lines', genModule: horizontalLines, animModule: horizontalLinesAnim },
   { title: 'Vertical Lines', genModule: verticalLines, animModule: verticalLinesAnim },
+  { title: 'STAR GLINT', genModule: starGlint, animModule: starGlintAnim },
+  { title: 'Line Halftone', genModule: lineHalftone, animModule: lineHalftoneAnim },
 ];
 
 export default function App() {
@@ -46,11 +52,23 @@ export default function App() {
   const [previewScale, setPreviewScale] = useState(0.8);
   const [showInfo, setShowInfo] = useState(false);
 
-  // Shared params for all 4 effect panels — persists across tab switches.
+  // Shared params for all effect panels — persists across tab switches.
   // Initialised from animModule (canonical unified schema source).
   const [sharedParams, setSharedParams] = useState(() =>
     effectPairs.map(({ animModule }) => animModule.getDefaultParams())
   );
+
+  // 로컬 개발 중(HMR) 새로운 효과가 배열 끝에 추가되었을 때 기존 state 길이에 맞춰 보정
+  useEffect(() => {
+    setSharedParams((prev) => {
+      if (prev.length === effectPairs.length) return prev;
+      const next = [...prev];
+      for (let i = prev.length; i < effectPairs.length; i++) {
+        next[i] = effectPairs[i].animModule.getDefaultParams();
+      }
+      return next;
+    });
+  }, []);
 
   // Load default logo on mount
   useEffect(() => {
@@ -332,6 +350,8 @@ export default function App() {
                 <li><strong>Ellipse Grid</strong> — 격자 형태의 타원이 펄스 애니메이션</li>
                 <li><strong>Horizontal Lines</strong> — 굵기가 변하는 수평 라인 웨이브</li>
                 <li><strong>Vertical Lines</strong> — 굵기가 변하는 수직 라인 웨이브</li>
+                <li><strong>Star Glint</strong> — 로고를 구성하며 반짝이는 다이내믹 십자별</li>
+                <li><strong>Line Halftone</strong> — 두께로 명암 볼륨감을 표현하는 가로줄 웨이브</li>
               </ul>
             </section>
 
